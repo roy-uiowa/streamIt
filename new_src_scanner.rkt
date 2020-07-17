@@ -622,8 +622,7 @@
              (evaluate-filter (StreamFilter-Body calledObject) sourceStruct graph newNode)]
             [(StreamSplitJoin? calledObject)
              (evaluate-splitjoin (StreamSplitJoin-Body calledObject) sourceStruct graph newNode)])
-          )]
-       
+          )]      
        [(name) (evaluate-splitjoin #'name sourceStruct graph nodeName)])]
 
        
@@ -651,6 +650,8 @@
      (evaluate-splitjoin #'addStmt-stx sourceStruct  graph nodeName)]
   ))
 
+
+;;;;;;;;;;;;;;;;; filter section
 (define (evaluate-filter stx sourceStruct graph nodeName)
   (syntax-parse stx
     ;handling declarations
@@ -810,79 +811,6 @@
     [({~literal call} call-stx ...)      ; problem here
      ;(println #'(call-stx ...))          ; dispatch issue
      (syntax-case #'(call-stx ...)()
-       [(name brkt1 args brkt2)    ;procedure call with arguments
-        (let* ([calledNodeName (syntax-e(second(syntax-e #'name)))]
-               [calledObject (hash-ref (StreamGraph-objectList sourceStruct) calledNodeName)]
-               [listOfArgs null]
-               [newNode (StreamGraph-nodeCounter sourceStruct)])
-          (for ([eachArg-stx (rest (syntax-e #'args))])
-            (set! listOfArgs (append listOfArgs (list (evaluate-filter eachArg-stx sourceStruct graph nodeName)))))
-          ; create a new node
-          (add-vertex! graph newNode)
-          (objectName-set! nodeName calledNodeName)
-          (set-StreamGraph-nodeCounter! sourceStruct (+ (StreamGraph-nodeCounter sourceStruct) 1))
-          ;and connect edge 
-          (if (null? (childList nodeName))
-              (begin
-                (childList-set! nodeName (list newNode))
-                (add-directed-edge! graph nodeName newNode))
-              (begin
-                (add-directed-edge! graph (last (childList nodeName)) newNode)
-                (childList-set! nodeName
-                                (append (childList nodeName)
-                                        (list newNode)))))
-          ;update context 
-          (context-set! newNode (environment (list (frame '() #f))))
-          (cond
-            [(StreamPipeLine? calledObject)
-             (println "pipe")
-             (extend-env (StreamPipeLine-Parameters calledObject)
-                                       listOfArgs
-                                       (context newNode))
-             (evaluate-filter (StreamPipeLine-Body calledObject) sourceStruct graph newNode)]
-            [(StreamFilter? calledObject)
-             (println "filter")
-             (extend-env (StreamFilter-Parameters calledObject)
-                                       listOfArgs
-                                       (context newNode))
-             (evaluate-filter (StreamFilter-Body calledObject) sourceStruct graph newNode)]
-            [(StreamSplitJoin? calledObject)
-             (println "splitjoin")
-             (context-set! newNode
-                           (extend-env (StreamSplitJoin-Parameters calledObject)
-                                       listOfArgs
-                                       (context newNode)))
-             (evaluate-filter (StreamSplitJoin-Body calledObject) sourceStruct graph newNode)])
-          )]
-       [(name brkt1 brkt2)    ;procedure call with arguments
-        (let* ([calledNodeName (syntax-e(second(syntax-e #'name)))]
-               [calledObject (hash-ref (StreamGraph-objectList sourceStruct) calledNodeName)]
-               [newNode (StreamGraph-nodeCounter sourceStruct)])
-          ; create a new node
-          (add-vertex! graph newNode)
-          (objectName-set! nodeName calledNodeName)
-          (set-StreamGraph-nodeCounter! sourceStruct (+ (StreamGraph-nodeCounter sourceStruct) 1))
-          ;and connect edge 
-          (if (null? (childList nodeName))
-              (begin
-                (childList-set! nodeName (list newNode))
-                (add-directed-edge! graph nodeName newNode))
-              (begin
-                (add-directed-edge! graph (last (childList nodeName)) newNode)
-                (childList-set! nodeName
-                                (append (childList nodeName)
-                                        (list newNode)))))
-          ;update context 
-          (context-set! newNode (environment (list (frame '() #f))))
-          (cond
-            [(StreamPipeLine? calledObject)
-             (evaluate-filter (StreamPipeLine-Body calledObject) sourceStruct graph newNode)]
-            [(StreamFilter? calledObject)
-             (evaluate-filter (StreamFilter-Body calledObject) sourceStruct graph newNode)]
-            [(StreamSplitJoin? calledObject)
-             (evaluate-filter (StreamSplitJoin-Body calledObject) sourceStruct graph newNode)])
-          )]
-       
        [(name) (evaluate-filter #'name sourceStruct graph nodeName)])]
 
        
@@ -902,8 +830,7 @@
                    [(string=? "pop" printStr) printStr]   ; handle printing peek/pop
                    [(string=? "peek" printStr) printStr]
                    [(error 'print (~a "Undefined variable:" printStr))])
-                 (binding-value (lookup-in-env printStr (context nodeName))))
-             ]
+                 (binding-value (lookup-in-env printStr (context nodeName))))]
             ))])]
     [({~literal addStatement} addStmt-stx)
      ;(println #'addStmt-stx)
