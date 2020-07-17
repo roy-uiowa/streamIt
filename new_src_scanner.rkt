@@ -180,8 +180,7 @@
      (evaluate-pipe #'forInit-stx sourceStruct graph nodeName)
      (while (evaluate-pipe #'forCond-stx sourceStruct graph nodeName)
             (evaluate-pipe #'forBody-stx sourceStruct graph nodeName)
-            (evaluate-pipe #'forInc-stx sourceStruct graph nodeName)
-            )
+            (evaluate-pipe #'forInc-stx sourceStruct graph nodeName))
      (remove-local-env-frame! (context nodeName))
      ]
     
@@ -545,7 +544,67 @@
                 [("-") (- num)])))]
        [(arg)
         (evaluate-splitjoin #'arg sourceStruct graph nodeName)])]
-
+    [({~literal splitjoinStmt} spltjn-stx spltjnType-stx ...)
+     (syntax-case #'(spltjnType-stx ...)()
+       [(spltJoinType) (if (string=? (syntax-e (last (syntax-e #'spltJoinType))) "duplicate")
+                           (begin
+                             ;(println "duplicate")
+                             (if (string=? (syntax-e #'spltjn-stx) "split")
+                                 (begin
+                                   (set-StreamSplitJoin-SplitType! (hash-ref (StreamGraph-objectList sourceStruct)
+                                                                             (objectName nodeName)) "duplicate")
+                                   (set-StreamSplitJoin-SplitRate! (hash-ref (StreamGraph-objectList sourceStruct)
+                                                                             (objectName nodeName)) 1)) ; no rate setting
+                                 (begin
+                                   (set-StreamSplitJoin-JoinType! (hash-ref (StreamGraph-objectList sourceStruct)
+                                                                             (objectName nodeName)) "duplicate")
+                                   (set-StreamSplitJoin-JoinRate! (hash-ref (StreamGraph-objectList sourceStruct)
+                                                                             (objectName nodeName)) 1))))
+                           (begin
+                             ;(println "roundrobin")
+                             (if (string=? (syntax-e #'spltjn-stx) "split")
+                                 (begin
+                                   (set-StreamSplitJoin-SplitType! (hash-ref (StreamGraph-objectList sourceStruct)
+                                                                             (objectName nodeName)) "roundrobin")
+                                   (set-StreamSplitJoin-SplitRate! (hash-ref (StreamGraph-objectList sourceStruct)
+                                                                             (objectName nodeName)) 1)) ; no rate setting
+                                 (begin
+                                   (set-StreamSplitJoin-JoinType! (hash-ref (StreamGraph-objectList sourceStruct)
+                                                                             (objectName nodeName)) "roundrobin")
+                                   (set-StreamSplitJoin-JoinRate! (hash-ref (StreamGraph-objectList sourceStruct)
+                                                                             (objectName nodeName)) 1)))))]
+       [(spltJoinType rates)
+        (let ([splitjoin-rates-stx (rest (syntax->list #'rates))] [sj_rates null])
+          (for ([rate splitjoin-rates-stx])
+            (set! sj_rates (append sj_rates (list (evaluate-splitjoin rate graph nodeName)))))
+          ;(println sj_rates)
+          (if (string=? (syntax-e (last (syntax-e #'spltJoinType))) "duplicate")
+              (begin
+                ;(println #'rates)
+                (if (string=? (syntax-e #'spltjn-stx) "split")
+                    (begin
+                      (set-StreamSplitJoin-SplitType! (hash-ref (StreamGraph-objectList sourceStruct)
+                                                                             (objectName nodeName)) "duplicate")
+                      (set-StreamSplitJoin-SplitRate! (hash-ref (StreamGraph-objectList sourceStruct)
+                                                                             (objectName nodeName)) sj_rates)) ; split rates
+                    (begin
+                      (set-StreamSplitJoin-JoinType! (hash-ref (StreamGraph-objectList sourceStruct)
+                                                                             (objectName nodeName)) "duplicate")
+                      (set-StreamSplitJoin-JoinRate! (hash-ref (StreamGraph-objectList sourceStruct)
+                                                                             (objectName nodeName)) sj_rates)))) ;join rates
+              (begin
+                      
+                (if (string=? (syntax-e #'spltjn-stx) "split")
+                    (begin
+                      (set-StreamSplitJoin-SplitType! (hash-ref (StreamGraph-objectList sourceStruct)
+                                                                             (objectName nodeName)) "roundrobin")
+                      (set-StreamSplitJoin-JoinRate! (hash-ref (StreamGraph-objectList sourceStruct)
+                                                                             (objectName nodeName)) sj_rates)) ; rate setting
+                    (begin
+                      (set-StreamSplitJoin-JoinType! (hash-ref (StreamGraph-objectList sourceStruct)
+                                                                             (objectName nodeName)) "roundrobin")
+                      (set-StreamSplitJoin-JoinRate! (hash-ref (StreamGraph-objectList sourceStruct)
+                                                                             (objectName nodeName)) sj_rates))))))])]
         
     ;handle function calls
     [({~literal call} call-stx ...)      ; problem here
