@@ -43,7 +43,7 @@
               (set-StreamFilter-FunctionList! newFilter functions)
               (hash-set! (StreamGraph-objectList sourceStructure) name newFilter)))]
          [(string=? ObjectType "splitjoin")
-          (let ([newSJ (StreamSplitJoin name parameters body-stx)])
+          (let ([newSJ (StreamSplitJoin name parameters body-stx #f #f #f #f)])
             (hash-set! (StreamGraph-objectList sourceStructure) name newSJ))]))]
 
     
@@ -544,6 +544,7 @@
                 [("-") (- num)])))]
        [(arg)
         (evaluate-splitjoin #'arg sourceStruct graph nodeName)])]
+    
     [({~literal splitjoinStmt} spltjn-stx spltjnType-stx ...)
      (syntax-case #'(spltjnType-stx ...)()
        [(spltJoinType) (if (string=? (syntax-e (last (syntax-e #'spltJoinType))) "duplicate")
@@ -622,29 +623,26 @@
           (objectName-set! nodeName calledNodeName)
           (set-StreamGraph-nodeCounter! sourceStruct (+ (StreamGraph-nodeCounter sourceStruct) 1))
           ;and connect edge 
-          (if (null? (childList nodeName))
-              (begin
-                (childList-set! nodeName (list newNode))
-                (add-directed-edge! graph nodeName newNode))
-              (begin
-                (add-directed-edge! graph (last (childList nodeName)) newNode)
-                (childList-set! nodeName
-                                (append (childList nodeName)
-                                        (list newNode)))))
+          (childList-set! nodeName
+                          (append (childList nodeName)
+                                  (list newNode)))
+          (add-edge! graph nodeName newNode) ; undirected edge a-->b  b-->a
           ;update context 
           (context-set! newNode (environment (list (frame '() #f))))
           (cond
             [(StreamPipeLine? calledObject)
              (println "pipe")
-             (extend-env (StreamPipeLine-Parameters calledObject)
+             (context-set! newNode
+                           (extend-env (StreamPipeLine-Parameters calledObject)
                                        listOfArgs
-                                       (context newNode))
+                                       (context newNode)))
              (evaluate-splitjoin (StreamPipeLine-Body calledObject) sourceStruct graph newNode)]
             [(StreamFilter? calledObject)
              (println "filter")
-             (extend-env (StreamFilter-Parameters calledObject)
+             (context-set! newNode
+                           (extend-env (StreamFilter-Parameters calledObject)
                                        listOfArgs
-                                       (context newNode))
+                                       (context newNode)))
              (evaluate-filter (StreamFilter-Body calledObject) sourceStruct graph newNode)]
             [(StreamSplitJoin? calledObject)
              (println "splitjoin")
@@ -662,16 +660,11 @@
           (add-vertex! graph newNode)
           (objectName-set! nodeName calledNodeName)
           (set-StreamGraph-nodeCounter! sourceStruct (+ (StreamGraph-nodeCounter sourceStruct) 1))
-          ;and connect edge 
-          (if (null? (childList nodeName))
-              (begin
-                (childList-set! nodeName (list newNode))
-                (add-directed-edge! graph nodeName newNode))
-              (begin
-                (add-directed-edge! graph (last (childList nodeName)) newNode)
-                (childList-set! nodeName
-                                (append (childList nodeName)
-                                        (list newNode)))))
+          ;and connect edge ; edge also defines the channel
+          (childList-set! nodeName
+                          (append (childList nodeName)
+                                  (list newNode)))
+          (add-edge! graph nodeName newNode) ; undirected edge a-->b  b-->a
           ;update context 
           (context-set! newNode (environment (list (frame '() #f))))
           (cond
