@@ -28,6 +28,7 @@
            (require "new_src_scanner.rkt")
            ;(require "new_interpreter.rkt")
            (require "new_environment.rkt")
+           (require "graph_builder.rkt")
            ;|#
            (define data 'str)
            (define a-sample-input-port (open-input-string data))
@@ -43,7 +44,9 @@
            (define StreamPipeLines null)
            (define StreamFilters null)
            (define StreamSplitJoins null)
+           (define numberOfNodes 0)
            (define sourceStructure (StreamGraph root
+                                                numberOfNodes
                                                 objectList
                                                 StreamPipeLines
                                                 StreamFilters
